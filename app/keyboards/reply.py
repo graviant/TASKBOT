@@ -7,7 +7,7 @@ def user_menu() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="📝 Выдать задание")],
             [KeyboardButton(text="📤 Мои выданные задания"), KeyboardButton(text="📋 Мои задачи")],
-            [KeyboardButton(text="🗑 Удалить мою задачу"), KeyboardButton(text="🗑 Удалить моё задание")],
+            [KeyboardButton(text="🗑 Удалить моё задание"), KeyboardButton(text="🗑 Удалить мою задачу")],
         ],
         resize_keyboard=True
     )

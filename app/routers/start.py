@@ -7,6 +7,7 @@ from ..config import load_config
 from ..keyboards.reply import user_menu, admin_menu
 from ..services.allowed import AllowedUsers
 
+
 router = Router(name="start")
 
 @router.message(CommandStart())
@@ -27,7 +28,7 @@ async def start_cmd(message: Message, allowed: AllowedUsers):
             username=message.from_user.username,
             full_name=message.from_user.full_name,
             is_admin=uid in cfg.admins,
-            is_member=True if uid not in cfg.admins else True  # для админов ставим true
+            is_member=True  # для админов ставим true
         )
         await message.answer("Привет! Я помогу с заданиями. Выберите действие:", reply_markup=kb)
         return
