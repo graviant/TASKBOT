@@ -46,7 +46,18 @@ async def cancel(message: types.Message, state: FSMContext):
 @router.message(StateFilter(default_state), F.chat.type == "private", F.text == "📝 Выдать задание")
 async def start_task_creation(message: types.Message, state: FSMContext):
     await state.set_state(TaskCreation.work_type)
-    await message.answer("Выберите вид задания:", reply_markup=worktype_keyboard())
+    # 1) Сообщение с ИНЛАЙН-кнопками выбора вида задания
+    await message.answer(
+        "Выберите вид задания:",
+        reply_markup=worktype_keyboard()
+    )
+    # 2) Сообщение, которое активирует REPLY-клавиатуру с «❌ Отмена задания»
+    #    (клавиатура закрепится в поле ввода до следующей замены)
+    await message.answer(
+        "Во время ввода можно отменить создание задания:",
+        reply_markup=task_creation_menu()
+    )
+
 
 # === выбор вида задания по кнопке ===
 @router.callback_query(TaskCreation.work_type, F.data.startswith("worktype:"))
