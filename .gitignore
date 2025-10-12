@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Database dumps
+*.sql
+*.dump
+*.backup
+
+# MyPy / Pytest / Ruff
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.iml
+
+# Docker volumes
+postgres_data/
