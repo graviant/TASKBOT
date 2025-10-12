@@ -6,13 +6,16 @@ from aiogram.fsm.state import default_state
 from decimal import Decimal
 from datetime import datetime
 from typing import Optional
+from aiogram.types import CallbackQuery
 
 from ..fsm.task_creation import TaskCreation
 from ..filters.validators import IsDecimal
 from ..db import repo
 from ..services.publisher import publish_assignment
 from ..config import load_config
-from ..keyboards.reply import user_menu, admin_menu, task_creation_menu  # <<< добавлено
+from ..keyboards.reply import user_menu, admin_menu, task_creation_menu
+from ..keyboards.inline import worktype_keyboard
+from ..keyboards.inline import customers_keyboard  # функция, формирующая инлайн-кнопки из списка
 
 router = Router(name="user_tasks")
 
@@ -43,13 +46,18 @@ async def cancel(message: types.Message, state: FSMContext):
 @router.message(StateFilter(default_state), F.chat.type == "private", F.text == "📝 Выдать задание")
 async def start_task_creation(message: types.Message, state: FSMContext):
     await state.set_state(TaskCreation.work_type)
-    await message.answer("Введите вид работ (например: dev/design/qa):", reply_markup=task_creation_menu())
+    await message.answer("Выберите вид задания:", reply_markup=worktype_keyboard())
 
-@router.message(TaskCreation.work_type, F.text)
-async def ask_deadline(message: types.Message, state: FSMContext):
-    await state.update_data(work_type=message.text.strip())
+# === выбор вида задания по кнопке ===
+@router.callback_query(TaskCreation.work_type, F.data.startswith("worktype:"))
+async def select_worktype(callback: CallbackQuery, state: FSMContext):
+    value = callback.data.split(":", 1)[1]  # design / montage / shooting
+    await state.update_data(work_type=value)
     await state.set_state(TaskCreation.deadline)
-    await message.answer("Введите срок: YYYY-MM-DD, 31.12.2025", reply_markup=task_creation_menu())
+
+    await callback.message.edit_text(f"Вы выбрали: {value.capitalize()}")
+    await callback.message.answer("Введите срок: YYYY-MM-DD, 31.12.2025", reply_markup=task_creation_menu())
+    await callback.answer()
 
 @router.message(TaskCreation.deadline, F.text)
 async def ask_project(message: types.Message, state: FSMContext):
@@ -64,22 +72,36 @@ async def ask_project(message: types.Message, state: FSMContext):
             reply_markup=task_creation_menu()
         )
         return
-
     await state.update_data(deadline=deadline)
     await state.set_state(TaskCreation.project)
     await message.answer("Введите проект:", reply_markup=task_creation_menu())
+
 
 @router.message(TaskCreation.project, F.text)
 async def ask_customer(message: types.Message, state: FSMContext):
     await state.update_data(project=message.text.strip())
     await state.set_state(TaskCreation.customer)
-    await message.answer("Введите заказчика:", reply_markup=task_creation_menu())
+    customers = await repo.list_customers()
+    await message.answer("Выберите заказчика:", reply_markup=customers_keyboard(customers))
+
+
+@router.callback_query(TaskCreation.customer, F.data.startswith("customer:"))
+async def select_customer(callback: CallbackQuery, state: FSMContext):
+    customer_id = int(callback.data.split(":")[1])
+    await state.update_data(customer_id=customer_id)  # сохраняем ID
+    await state.set_state(TaskCreation.total_volume)
+    name = await repo.get_customer_name(customer_id)
+    await callback.message.edit_text(f"Вы выбрали заказчика: {name}")
+    await callback.message.answer("Введите общий объём (число, можно с запятой):", reply_markup=task_creation_menu())
+    await callback.answer()
+
 
 @router.message(TaskCreation.customer, F.text)
 async def ask_volume(message: types.Message, state: FSMContext):
     await state.update_data(customer=message.text.strip())
     await state.set_state(TaskCreation.total_volume)
     await message.answer("Введите общий объём (число, можно с запятой):", reply_markup=task_creation_menu())
+
 
 @router.message(TaskCreation.total_volume, IsDecimal())
 async def ask_comment(message: types.Message, state: FSMContext):
@@ -90,6 +112,7 @@ async def ask_comment(message: types.Message, state: FSMContext):
     await state.update_data(total_volume=vol)
     await state.set_state(TaskCreation.comment)
     await message.answer("Комментарий (или '-' если нет):", reply_markup=task_creation_menu())
+
 
 @router.message(TaskCreation.comment, F.text)
 async def finalize_task(message: types.Message, state: FSMContext):

@@ -26,14 +26,59 @@ from .middlewares.members import AllMiddleware
 from .services.allowed import AllowedUsers
 
 
-async def apply_schema() -> None:
+CUSTOMERS_SEED = [
+    "Администрация Главы Чувашии",
+    "Глава Чувашии",
+    "Госпаблики",
+    "Госпаблики детских садов",
+    "Госпаблики ОМСУ",
+    "Госпаблики школ",
+    "Кабмин Чувашии",
+    "Медиацентр Чувашии",
+    "Минздрав Чувашии",
+    "Минкультуры Чувашии",
+    "Минобразования Чувашии",
+    "Минсельхоз Чувашии",
+    "Минспорт Чувашии",
+    "Минстрой Чувашии",
+    "Минтруд Чувашии",
+    "Минцифры Чувашии",
+    "Минэкономразвития Чувашии",
+    "Молодежная политика",
+    "Фонд защитников отечества",
+    "ЦУР Чувашии",
+    "Военкомат Чувашии",
+    "Госветслужба",
+    "Госпаблик Чебоксары",
+    "Госпаблики спортивных школ",
+    "Минтранс Чувашии",
+]
+
+async def apply_schema():
+    """
+    1) Выполняем schema.sql (create table if not exists ...)
+    2) Если справочник customers пуст — заполняем начальными значениями (idempotent).
+    """
     pool = get_pool()
-    schema_text = Path(__file__).with_name("db").joinpath("schema.sql").read_text(encoding="utf-8")
-    statements = [s.strip() for s in schema_text.split(";") if s.strip()]
+
+    # 1) schema.sql
+    schema_path = Path(__file__).with_name("db").joinpath("schema.sql")
+    schema_sql = schema_path.read_text(encoding="utf-8")
     async with pool.connection() as conn:
         async with conn.transaction():
-            for stmt in statements:
-                await conn.execute(stmt)
+            await conn.execute(schema_sql)
+
+    # 2) seed customers (только если пусто)
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            count = await conn.fetchval("select count(*) from customers")
+            if not count:
+                # Вставляем батчем, исключая дубликаты
+                for name in CUSTOMERS_SEED:
+                    await conn.execute(
+                        "insert into customers(name) values ($1) on conflict (name) do nothing",
+                        name,
+                    )
 
 
 async def _probe_db() -> None:

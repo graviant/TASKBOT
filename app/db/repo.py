@@ -205,3 +205,18 @@ async def upsert_user_full(user_id: int, username: str | None, full_name: str | 
         async with conn.transaction():
             async with conn.cursor() as cur:
                 await cur.execute(sql, (user_id, username, full_name, is_admin, is_member))
+
+
+# app/db/repo.py (добавлено для работы с кнопками - список заказчиков)
+async def list_customers() -> list[dict]:
+    pool = get_pool()
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            rows = await conn.fetch("select id, name from customers order by name")
+            return [dict(r) for r in rows]
+
+async def get_customer_name(customer_id: int) -> str | None:
+    pool = get_pool()
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            return await conn.fetchval("select name from customers where id=$1", customer_id)
