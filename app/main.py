@@ -3,6 +3,7 @@ import sys
 import logging
 from decimal import Decimal
 from pathlib import Path
+import re
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -24,7 +25,6 @@ from .routers import group as r_group
 from .middlewares.admin import AdminMiddleware
 from .middlewares.members import AllMiddleware
 from .services.allowed import AllowedUsers
-
 
 CUSTOMERS_SEED = [
     "Администрация Главы Чувашии",
@@ -54,31 +54,57 @@ CUSTOMERS_SEED = [
     "Минтранс Чувашии",
 ]
 
+# аккуратный сплит по ';' с учётом кавычек и $$...$$
+_SQL_SPLIT_RE = re.compile(r";\s*(?=(?:[^'\"$]|'[^']*'|\"[^\"]*\"|\$\$.*?\$\$)*$)", re.DOTALL)
+
+
 async def apply_schema():
     """
-    1) Выполняем schema.sql (create table if not exists ...)
-    2) Если справочник customers пуст — заполняем начальными значениями (idempotent).
+    1) Применяем schema.sql: бьём на стейтменты и выполняем по одному.
+    2) Проверяем, что таблица customers создана.
+    3) Если customers пуста — засеваем начальными значениями.
     """
     pool = get_pool()
 
-    # 1) schema.sql
-    schema_path = Path(__file__).with_name("db").joinpath("schema.sql")
+    # 1) читаем schema.sql
+    schema_path = Path(__file__).resolve().parent / "db" / "schema.sql"
+    if not schema_path.exists():
+        raise FileNotFoundError(f"schema.sql not found at: {schema_path}")
     schema_sql = schema_path.read_text(encoding="utf-8")
-    async with pool.connection() as conn:
-        async with conn.transaction():
-            await conn.execute(schema_sql)
 
-    # 2) seed customers (только если пусто)
+    # 2) разбиваем на отдельные запросы
+    statements = [s.strip() for s in _SQL_SPLIT_RE.split(schema_sql) if s.strip()]
+
     async with pool.connection() as conn:
         async with conn.transaction():
-            count = await conn.fetchval("select count(*) from customers")
-            if not count:
-                # Вставляем батчем, исключая дубликаты
-                for name in CUSTOMERS_SEED:
-                    await conn.execute(
-                        "insert into customers(name) values ($1) on conflict (name) do nothing",
-                        name,
-                    )
+            for i, stmt in enumerate(statements, 1):
+                try:
+                    await conn.execute(stmt)
+                except Exception as e:
+                    preview = (stmt.replace("\n", " ")[:220] + "…") if len(stmt) > 220 else stmt
+                    raise RuntimeError(f"Schema statement #{i} failed: {preview}") from e
+
+    # 3) sanity-check: существует ли таблица customers
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute("select to_regclass('public.customers')")
+                exists = (await cur.fetchone())[0]
+                if not exists:
+                    raise RuntimeError("Table 'customers' was not created. Check schema.sql content.")
+
+    # 4) seed customers (если пусто)
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute("select count(*) from customers")
+                count = (await cur.fetchone())[0]
+                if count == 0:
+                    for name in CUSTOMERS_SEED:
+                        await cur.execute(
+                            "insert into customers(name) values (%s) on conflict (name) do nothing",
+                            (name,),
+                        )
 
 
 async def _probe_db() -> None:
@@ -220,6 +246,7 @@ if __name__ == "__main__":
     else:
         try:
             import uvloop
+
             uvloop.install()
         except Exception:
             pass

@@ -116,17 +116,29 @@ async def ask_comment(message: types.Message, state: FSMContext):
 
 @router.message(TaskCreation.comment, F.text)
 async def finalize_task(message: types.Message, state: FSMContext):
+    from ..keyboards.inline import customers_keyboard  # на случай, если понадобиться вернуть шаг выбора
     comment = None if message.text.strip() == "-" else message.text.strip()
     data = await state.get_data()
     cfg = load_config()
 
-    # Создание задания
+    # подстраховка: если по какой-то причине нет customer_id — вернём пользователя на шаг выбора
+    customer_id = data.get("customer_id")
+    if customer_id is None:
+        customers = await repo.list_customers()
+        await state.set_state(TaskCreation.customer)
+        await message.answer("Похоже, вы не выбрали заказчика. Выберите заказчика:", reply_markup=customers_keyboard(customers))
+        return
+
+    # имя заказчика для публикации (а в БД сохраняем snapshot через INSERT)
+    customer_name = await repo.get_customer_name(customer_id)
+
+    # Создание задания (вставка с customer_id и snapshot внутри SQL)
     a_id = await repo.create_assignment(
         author_id=message.from_user.id,
         work_type=data["work_type"],
         deadline_at=data["deadline"],
         project=data["project"],
-        customer=data["customer"],
+        customer_id=customer_id,                 # <<< ВАЖНО: передаём id, не строку
         total_volume=data["total_volume"],
         comment=comment
     )
@@ -144,7 +156,7 @@ async def finalize_task(message: types.Message, state: FSMContext):
         assignment_id=a_id,
         work_type=data["work_type"],
         project=data["project"],
-        customer=data["customer"],
+        customer=customer_name,                  # <<< для текста используем имя
         total_volume=data["total_volume"],
         deadline_text=deadline_text,
         comment=comment,
@@ -155,6 +167,7 @@ async def finalize_task(message: types.Message, state: FSMContext):
 
     await state.clear()
     await message.answer("Задание опубликовано в общем чате ✅", reply_markup=_main_menu_for(message.from_user.id))
+
 
 # --- прочие кнопки основного меню — только когда FSM НЕ активна ---
 
