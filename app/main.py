@@ -142,6 +142,7 @@ async def main():
     logging.info("Scheduler started. Starting polling…")
 
     try:
+        await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
         logging.info("Shutting down…")
