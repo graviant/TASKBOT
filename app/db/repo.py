@@ -287,3 +287,31 @@ async def assignment_free_volume(assignment_id: int) -> Decimal:
             taken = Decimal(row2[0]) if row2 and row2[0] is not None else Decimal("0")
 
             return total - taken
+
+
+async def upsert_thread_binding(work_type: str, thread_id: int) -> None:
+    pool = get_pool()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
+            insert into thread_bindings(work_type, thread_id)
+            values (%s, %s)
+            on conflict (work_type) do update set thread_id = excluded.thread_id
+            """,
+            (work_type, thread_id),
+        )
+
+async def thread_id_for_worktype(work_type: str) -> Optional[int]:
+    pool = get_pool()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute("select thread_id from thread_bindings where work_type=%s", (work_type,))
+        row = await cur.fetchone()
+        return int(row[0]) if row else None
+
+async def list_thread_bindings() -> list[dict]:
+    pool = get_pool()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute("select work_type, thread_id from thread_bindings order by work_type")
+        rows = await cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in rows]

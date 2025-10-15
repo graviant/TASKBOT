@@ -177,7 +177,11 @@ async def finalize_task(message: types.Message, state: FSMContext):
     else:
         author_name = message.from_user.full_name or str(message.from_user.id)
 
-    thread_id = cfg.threads_by_worktype.get(data["work_type"])
+    # было:
+    # thread_id = cfg.threads_by_worktype.get(data["work_type"])
+    # стало:
+    thread_id = await repo.thread_id_for_worktype(data["work_type"])
+
     chat_id = cfg.general_chat_ids[0]
     me = await message.bot.me()
 

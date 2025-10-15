@@ -122,7 +122,11 @@ async def remind_job(bot: Bot):
         free = await repo.assignment_free_volume(a["id"])
         if free <= Decimal("0") or not a["published_chat_id"]:
             continue
-        thread_id = cfg.threads_by_worktype.get(a["work_type"])
+        # было:
+        # thread_id = cfg.threads_by_worktype.get(a["work_type"])
+        # стало:
+        thread_id = await repo.thread_id_for_worktype(a["work_type"])
+
         text = f"🔔 Напоминание по заданию #{a['id']}: свободно {free}"
         await bot.send_message(
             a["published_chat_id"],
