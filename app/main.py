@@ -21,6 +21,7 @@ from .routers import start as r_start
 from .routers import user_tasks as r_user
 from .routers import admin as r_admin
 from .routers import group as r_group
+from .routers import claims as r_claims
 
 from .middlewares.admin import AdminMiddleware
 from .middlewares.members import AllMiddleware
@@ -189,6 +190,7 @@ async def main():
         ("user_tasks", r_user.router),
         ("admin", r_admin.router),
         ("group", r_group.router),
+        ("claims", r_claims.router),
     ]:
         try:
             logging.info("Including router: %s…", name)

@@ -9,3 +9,7 @@ class TaskCreation(StatesGroup):
     customer = State()
     total_volume = State()
     comment = State()
+
+# НОВОЕ: FSM для «взять задание»
+class ClaimTask(StatesGroup):
+    volume = State()

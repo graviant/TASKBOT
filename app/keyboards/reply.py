@@ -1,5 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 def user_menu() -> ReplyKeyboardMarkup:
     # Основное меню: БЕЗ кнопки "Отмена задания"
@@ -12,7 +11,6 @@ def user_menu() -> ReplyKeyboardMarkup:
         resize_keyboard=True
     )
 
-
 def admin_menu() -> ReplyKeyboardMarkup:
     base = user_menu().keyboard  # тут уже нет "Отмена задания"
     admin_extra = [
@@ -21,14 +19,24 @@ def admin_menu() -> ReplyKeyboardMarkup:
     ]
     return ReplyKeyboardMarkup(keyboard=base + admin_extra, resize_keyboard=True)
 
-
 def task_creation_menu() -> ReplyKeyboardMarkup:
     # Меню, показываемое ТОЛЬКО во время ввода задания
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="❌ Отмена задания")]
-        ],
+        keyboard=[[KeyboardButton(text="❌ Отмена задания")]],
         resize_keyboard=True,
-        selective=True,  # показывать клавиатуру адресно этому пользователю
+        selective=True,
         one_time_keyboard=False
     )
+
+# ↓↓↓ НОВОЕ - claim_menu ↓↓↓
+def claim_menu() -> ReplyKeyboardMarkup:
+    # Меню, показываемое ТОЛЬКО во время взятия задания (отклик на объём)
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отменить взятие")]],
+        resize_keyboard=True,
+        selective=True,
+        one_time_keyboard=False
+    )
+
+def remove_kb() -> ReplyKeyboardRemove:
+    return ReplyKeyboardRemove()
