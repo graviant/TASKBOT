@@ -72,6 +72,6 @@ async def claim_cancel(message: types.Message, state: FSMContext):
 async def claim_volume_wrong(message: types.Message):
     await message.answer(
         "Не получилось распознать число.\n"
-        "Введите объём (можно с запятой): 1,5 или 2.0",
+        "Введите объём (целое число от 1)",
         reply_markup=claim_menu(),
     )

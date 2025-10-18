@@ -113,7 +113,7 @@ async def select_customer(callback: CallbackQuery, state: FSMContext):
         "design":  "Введите КОЛИЧЕСТВО КАРТОЧЕК (число, можно с запятой):",
         "shooting":"Введите КОЛИЧЕСТВО ОПЕРАТОРОВ (число, можно с запятой):",
         "montage": "Введите КОЛИЧЕСТВО РОЛИКОВ (число, можно с запятой):",
-    }.get(work_type, "Введите общий объём (число, можно с запятой):")
+    }.get(work_type, "Введите общий объём (целое число от 1):")
 
     await callback.message.answer(volume_prompt, reply_markup=task_creation_menu())
     await callback.answer()

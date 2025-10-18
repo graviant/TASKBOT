@@ -45,7 +45,7 @@ async def start_with_deeplink(
         await state.set_state(ClaimTask.volume)
         await message.answer(
             f"Нашёл задание #{assignment_id}.\n"
-            "Введите объём, который хотите взять (число, можно с запятой):",
+            "Введите объём, который хотите взять (целое число от 1):",
             reply_markup=claim_menu(),
         )
         return
