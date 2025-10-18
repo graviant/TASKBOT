@@ -10,13 +10,14 @@ from aiogram.fsm.state import default_state
 from .user_tasks import _main_menu_for
 from ..fsm.task_creation import ClaimTask
 from ..filters.validators import IsDecimal
+from ..filters.validators import IsPositiveInt
 from ..db import repo
 from ..keyboards.reply import claim_menu
 
 router = Router(name="claims")
 
-# Шаг ввода объёма (валидное число по фильтру IsDecimal)
-@router.message(ClaimTask.volume, IsDecimal())
+# Шаг ввода объёма (валидное число по фильтру IsPositiveInt
+@router.message(ClaimTask.volume, IsPositiveInt())
 async def claim_set_volume(message: types.Message, state: FSMContext):
     raw = (message.text or "").strip().replace(",", ".")
     vol = Decimal(raw)
