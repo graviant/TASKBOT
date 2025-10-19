@@ -1,3 +1,4 @@
+# app/main.py
 import asyncio
 import sys
 import logging
@@ -137,6 +138,58 @@ async def remind_job(bot: Bot):
         )
 
 
+async def audit_members_job(bot: Bot, allowed: AllowedUsers):
+    """
+    Раз в час сверяем users.is_member с фактом членства в общем чате из .env.
+    Админы всегда считаются членами. Кэш allowed перезагружается по итогам.
+    """
+    cfg = load_config()
+    # Берём единственный общий чат из env (как вы используете)
+    if not cfg.general_chat_ids:
+        logging.warning("audit_members_job: GENERAL_CHAT_IDS is empty; skip audit")
+        return
+    general_chat_id = int(cfg.general_chat_ids[0])
+
+    try:
+        user_ids = await repo.list_all_user_ids()
+    except Exception:
+        logging.exception("audit_members_job: failed to list users")
+        return
+
+    # Сюда соберём всех, кого надо пустить в кэш allowed (is_member == True ИЛИ админ)
+    new_allowed_ids: list[int] = []
+
+    for uid in user_ids:
+        try:
+            # Админ — всегда член
+            if uid in cfg.admins:
+                await repo.set_user_membership(uid, True)
+                new_allowed_ids.append(uid)
+                continue
+
+            # Проверяем через Telegram API
+            try:
+                m = await bot.get_chat_member(general_chat_id, uid)
+                is_member = m.status in ("member", "administrator", "creator")
+            except Exception:
+                # Если Telegram вернул ошибку (например, бота нет в чате/пользователь ушёл)
+                is_member = False
+
+            await repo.set_user_membership(uid, is_member)
+            if is_member:
+                new_allowed_ids.append(uid)
+
+        except Exception:
+            logging.exception("audit_members_job: error processing uid=%s", uid)
+
+    # Обновляем кэш allowed целиком
+    try:
+        await allowed.load(new_allowed_ids)
+        logging.info("audit_members_job: allowed cache refreshed, %d users", len(new_allowed_ids))
+    except Exception:
+        logging.exception("audit_members_job: failed to refresh allowed cache")
+
+
 async def main():
     logging.info("Loading config…")
     cfg = load_config()
@@ -178,6 +231,7 @@ async def main():
     try:
         logging.info("Attaching middlewares…")
         dp.message.middleware(AllMiddleware(cfg.admins, allowed))
+        dp.callback_query.middleware(AllMiddleware(cfg.admins, allowed))
         r_admin.router.message.middleware(AdminMiddleware(cfg.admins))
         logging.info("Middlewares attached")
     except Exception:
@@ -215,6 +269,7 @@ async def main():
     # --- Scheduler ---
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(remind_job, "interval", minutes=cfg.remind_every_min, args=[bot])
+    scheduler.add_job(audit_members_job, "interval", minutes=1, args=[bot, allowed])  # аудит членства в чате
     scheduler.start()
     logging.info("Scheduler started. Starting polling…")
 

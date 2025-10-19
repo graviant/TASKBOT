@@ -89,6 +89,16 @@ async def list_member_user_ids() -> List[int]:
             return [int(r[0]) for r in rows]
 
 
+# Все user_id из таблицы users
+async def list_all_user_ids() -> list[int]:
+    pool = get_pool()
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT id FROM users")
+            rows = await cur.fetchall()
+            return [int(r[0]) for r in rows]
+
+
 # 2) Обновить флаг членства
 async def set_user_membership(user_id: int, is_member: bool) -> None:
     pool = get_pool()

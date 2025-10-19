@@ -1,4 +1,4 @@
-# admin.py
+# app/middlewares/admin.py
 from aiogram import BaseMiddleware
 from typing import Callable, Dict, Any, Awaitable
 from aiogram.types import Message
