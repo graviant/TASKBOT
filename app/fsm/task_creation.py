@@ -13,3 +13,7 @@ class TaskCreation(StatesGroup):
 # НОВОЕ: FSM для «взять задание»
 class ClaimTask(StatesGroup):
     volume = State()
+
+# Удаление задачи
+class DeleteClaim(StatesGroup):
+    wait_id = State()

@@ -9,7 +9,6 @@ from aiogram.fsm.state import default_state
 
 from .user_tasks import _main_menu_for
 from ..fsm.task_creation import ClaimTask
-from ..filters.validators import IsDecimal
 from ..filters.validators import IsPositiveInt
 from ..db import repo
 from ..keyboards.reply import claim_menu
@@ -19,13 +18,7 @@ router = Router(name="claims")
 # Шаг ввода объёма (валидное число по фильтру IsPositiveInt
 @router.message(ClaimTask.volume, IsPositiveInt())
 async def claim_set_volume(message: types.Message, state: FSMContext):
-    raw = (message.text or "").strip().replace(",", ".")
-    vol = Decimal(raw)
-
-    if vol <= 0:
-        await message.answer("Объём должен быть больше 0. Введите ещё раз:", reply_markup=claim_menu())
-        return
-
+    vol = int(message.text.strip())  # гарантирует IsPositiveInt()
     data = await state.get_data()
     assignment_id = int(data.get("assignment_id") or 0)
     if not assignment_id:

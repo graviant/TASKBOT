@@ -54,7 +54,7 @@ async def disable_assignment(assignment_id: int) -> bool:
 
 # ---------- claims ----------
 
-async def take_claim(assignment_id: int, executor_id: int, volume: Decimal) -> int | None:
+async def take_claim(assignment_id: int, executor_id: int, volume: int) -> int | None:
     free = await assignment_free_volume(assignment_id)
     if volume <= 0 or volume > free:
         return None

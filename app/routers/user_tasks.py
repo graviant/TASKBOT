@@ -8,8 +8,8 @@ from datetime import datetime
 from typing import Optional
 from aiogram.types import CallbackQuery
 
-from ..fsm.task_creation import TaskCreation
-from ..filters.validators import IsDecimal
+from ..fsm.task_creation import TaskCreation, DeleteClaim
+from ..filters.validators import IsDecimal, IsPositiveInt
 from ..db import repo
 from ..services.publisher import publish_assignment
 from ..config import load_config
@@ -231,11 +231,20 @@ async def my_tasks(message: types.Message):
     await message.answer(text)
 
 @router.message(StateFilter(default_state), F.chat.type == "private", F.text == "🗑 Удалить мою задачу")
-async def delete_my_task_hint(message: types.Message):
-    await message.answer("Отправьте ID вашей незакрытой задачи (число).")
+async def delete_my_task_enter(message: types.Message, state: FSMContext):
+    await state.set_state(DeleteClaim.wait_id)
+    await message.answer("Введите ID вашей незакрытой задачи (целое число):", reply_markup=task_creation_menu())
 
-@router.message(StateFilter(default_state), F.chat.type == "private", F.text.regexp(r"^\d+$"))
-async def delete_my_task_do(message: types.Message):
+@router.message(DeleteClaim.wait_id, IsPositiveInt())
+async def delete_my_task_do(message: types.Message, state: FSMContext):
     claim_id = int(message.text)
     ok = await repo.delete_my_open_claim(claim_id, message.from_user.id)
-    await message.answer("Удалено ✅" if ok else "Не найдено / нет прав.")
+    await state.clear()
+    await message.answer(
+        "Удалено ✅" if ok else "Не найдено / нет прав.",
+        reply_markup=_main_menu_for(message.from_user.id),
+    )
+
+@router.message(DeleteClaim.wait_id)
+async def delete_my_task_wrong(message: types.Message):
+    await message.answer("ID должен быть целым положительным числом или нажмите «❌ Отмена».")
